@@ -1,0 +1,64 @@
+NBO 3.0 (Natural Bond Orbital / Natural Population Analysis / Natural
+Localized Molecular Orbital Programs ) authored by Glendening, Reed,
+Carpenter and Weinhold, in this directory has been taken from
+128.104.26.10. See the following mails.
+
+                      Raimo Uusvuori 11.3.1993, CSC
+
+-----------------------------------------------------------------------
+
+From jims@duce.medicine.rochester.edu Thu Mar 11 23:35:02 1993
+Date: Mon, 8 Jun 92 14:59:24 GMT
+From: "James P. Schmidt" <jims@duce.medicine.rochester.edu>
+To: CHEMISTRY@ccl.net
+Subject: NBO 3.0
+
+I would like to reiterate and expound upon my request of last week for 
+information about NBO 3.0.
+
+The program I am looking for is NBO 3.0 (Natural Bond Orbital / Natural 
+Population Analysis / Natural Localized Molecular Orbital Programs )
+authored by Glendening, Reed, Carpenter and Weinhold.  I have been using
+this program as it is supplied as an undocumented feature in Gaussian 90
+and would like to able to implement it with Ampac.
+   I would appreciate any information as to how I can obtain this program.
+
+                                              Jim Schmidt
+                                              University of Rochester
+                                              Pharmacology Dept.
+                                              jims@duce.medicine.rochester.edu
+
+
+From jims@duce.medicine.rochester.edu Thu Mar 11 23:35:09 1993
+Date: Wed, 10 Jun 92 02:04:27 GMT
+From: "James P. Schmidt" <jims@duce.medicine.rochester.edu>
+To: CHEMISTRY@ccl.net
+Subject: NBO
+
+Here is the response I recieved from Frank Weinhold re: NBO
+
+* The program NBO 3.0 and printed documentation are available through the
+* Quantum Chemistry Program Exchange at Indiana University, Bloomington.  
+* The program manual describes the standard interface to Ampac.
+*
+* We also maintain a source program (.SRC code) of the latest available
+* version on the GUEST account (password: JOYRIDE) of our VAX/VMS machine
+* (node 128.104.26.10) for Telnet access.  You can log into this
+* account, change to the [.NBO] directory, and retrieve the files there,
+* including the basic NBO.SRC program, the ENABLE.FOR "activator" (e.g., to 
+* generate the AMPNBO.FOR Ampac version from NBO.SRC), and the TechSet form
+* of the program manual (the TechSet formatter is available through
+* ACS Software at 202-872-4378).  
+*
+* Andrew Holder at the Chemistry Department of the University of Missouri, 
+* Kansas City, is planning to market a version of the Dewar programs which
+* includes NBO, so this is a third alternative you may consider.
+
+Thanks to those who replied to my query.
+                                        
+                                       Jim Schmidt
+                                       University of Rochester
+                                       Pharmacology Dept.
+                                       jims@duce.medicine.rochester.edu
+
+
