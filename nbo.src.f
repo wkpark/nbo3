@@ -8,7 +8,7 @@ C                   (SYSTEM INDEPENDENT ROUTINES)
 C
 C
 C
-C              LAST PROGRAM MODIFICATION:  OCTOBER 22, 1991
+C              LAST PROGRAM MODIFICATION:  MAY 11, 1992
 C
 C
 C        !!! CRAY COMPILATION REQUIRES 64 BIT (-i64) INTEGERS !!!
@@ -166,7 +166,7 @@ C
 C  FREE FORMAT INPUT ROUTINES:
 C
 C      SUBROUTINE STRTIN(LFNIN)
-C      SUBROUTINE RDCRD
+C      SUBROUTINE NXTCRD
 C      SUBROUTINE IFLD(INT,ERROR)
 C      SUBROUTINE RFLD(REAL,ERROR)
 C      SUBROUTINE HFLD(KEYWD,LENG,ENDD)
@@ -274,13 +274,21 @@ C                           (Force the RESONANCE keyword)
 C
 C     NBOOPT(5)  =  1       Spin-annihilated UHF (AUHF) wavefunction
 C
-C     NBOOPT(6-9)           Unused
+C     NBOOPT(6)             Unused
+C
+C     NBOOPT(7)  =  0       Delete the NBO direct access file
+C                =  1       Save the NBO direct access file
+C
+C     NBOOPT(8)  =  #       File unit number containing density matrix (G92)
+C
+C     NBOOPT(9)  =  I       Ith excited state CI density (G92)
 C
 C     NBOOPT(10) =  0       General version of the NBO program (GENNBO)
 C                =  1       AMPAC version
 C                =  6       GAMESS version
 C                =  7       HONDO version
 C                =  8x      Gaussian 8x version
+C                =  9x      Gaussian 9x version
 C------------------------------------------------------------------------------
       IMPLICIT REAL*8 (A-H,O-Z)
       LOGICAL NEWDAF,ERROR,SEQ
@@ -468,6 +476,7 @@ C
       COMMON/NBNAME/FILENM,NFILE,IFILE(MAXFIL)
       CHARACTER*80 FILENM
 C
+      SAVE TENTH,HALF
       DATA TENTH,HALF/0.1D0,0.5D0/
 C
 C  SET DEFAULT JOB OPTIONS:  (MODIFICATIONS TO THESE DEFAULTS
@@ -591,7 +600,7 @@ C******************************************************************************
 C******************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       LOGICAL ERROR,END,EQUAL,NEXTWD,READ
-      DIMENSION NBOOPT(10),INTTMP(80)
+      DIMENSION NBOOPT(10),INTTMP(256)
 C
       PARAMETER(KEYLEN = 9)
       PARAMETER(MAXFIL = 40)
@@ -607,8 +616,8 @@ C
      +            LFNDAF,LFNDEF
       COMMON/NBTHR/THRSET,PRJSET,ACCTHR,CRTSET,E2THR,ATHR,PTHR,ETHR,
      +             DTHR,DLTHR,CHSTHR
-      COMMON/NBNAME/FILENM,NFILE,IFILE(MAXFIL)
-      CHARACTER*80 FILENM
+      COMMON/NBNAME/FILENM(80),NFILE,IFILE(MAXFIL)
+      CHARACTER*1 FILENM
 C
       DIMENSION KEYWD(KEYLEN),K3CBND(6),KEPERT(6),KLFNPR(5),KTHRSH(6),
      * KDETL(6),KMULA(5),KMULOR(6),KPRJTH(6),KNBNLM(7),
@@ -761,7 +770,6 @@ C  KEYWORD: NLMOMO -- COMPUTE AND PRINT NLMO TO MO TRANSF.
         GO TO 100
 C  KEYWORD: NLMO -- COMPUTE AND PRINT NLMOS
   650 IF(.NOT.EQUAL(KEYWD,KNLMO,4))  GO TO 660
-        IF(LENG.NE.4) GO TO 660
         JPRINT(8) = 1
         GO TO 100
 C  KEYWORD: NAOMO -- COMPUTE AND PRINT NAO TO MO TRANSF.
@@ -1336,7 +1344,6 @@ C  KEYWORD: APOLAR -- ENFORCE APOLAR BONDS:
         GO TO 100
 C  KEYWORD: NRTOPT -- OPTIMIZE NRT WEIGHTS:
  1290 IF(.NOT.EQUAL(KEYWD,KNRTOP,6)) GO TO 1300
-        IF(JPRINT(14).EQ.0) JPRINT(14) = 1
         IF(JPRINT(32).EQ.0) JPRINT(32) = 1
         JPRINT(55) = IB
         LENG = KEYLEN
@@ -1363,11 +1370,15 @@ C  KEYWORD: NRTOPT -- OPTIMIZE NRT WEIGHTS:
 	GO TO 100
 C  KEYWORD: NRTREF -- NUMBER OF REFERENCE STRUCTURES IN NRT ANALYSIS
  1300 IF(.NOT.EQUAL(KEYWD,KNRTRF,6)) GO TO 1310
-        IF(JPRINT(14).EQ.0) JPRINT(14) = 1
         IF(JPRINT(32).EQ.0) JPRINT(32) = 1
         CALL IFLD(ITEMP,ERROR)
         IF(ERROR) GO TO 100
         JPRINT(56) = MAX(1,ABS(ITEMP))
+        IF(OPEN) THEN
+          CALL IFLD(ITEMP,ERROR)
+          IF(ERROR) ITEMP = JPRINT(56)
+          JPRINT(56) = 1000 * JPRINT(56) + MAX(1,ABS(ITEMP))
+        END IF
         GO TO 100
 C  KEYWORD: CHSTHR -- SET THE OCCUPANCY THRESHOLD IN CHOOSE
  1310 IF(.NOT.EQUAL(KEYWD,KCHSTH,6)) GO TO 1320
@@ -1378,7 +1389,6 @@ C  KEYWORD: CHSTHR -- SET THE OCCUPANCY THRESHOLD IN CHOOSE
         GO TO 100
 C  KEYWORD: NRTDTL -- DETAIL NRT ANALYSIS
  1320 IF(.NOT.EQUAL(KEYWD,KNRTDT,6)) GO TO 1340
-        IF(JPRINT(14).EQ.0) JPRINT(14) = 1
         IF(JPRINT(32).EQ.0) JPRINT(32) = 1
         JPRINT(57) = 1
 	CALL IFLD(ITEMP,ERROR)
@@ -1387,7 +1397,6 @@ C  KEYWORD: NRTDTL -- DETAIL NRT ANALYSIS
         GO TO 100
 C  KEYWORD: NRTTHR -- SET THRESHOLD FOR DELOCALIZATION LIST
  1340 IF(.NOT.EQUAL(KEYWD,KNRTTH,6)) GO TO 1360
-        IF(JPRINT(14).EQ.0) JPRINT(14) = 1
         IF(JPRINT(32).EQ.0) JPRINT(32) = 1
         DLTHR = ABS(DLTHR)
 	CALL RFLD(TEMP,ERROR)
@@ -1399,7 +1408,6 @@ C  (NOTE THAT WE SHOULD CHECK THIS KEYWORD AFTER WE CHECK THE OTHER
 C  `NRT' KEYWORDS, LIKE `NRTOPT'.  OTHERWISE, KEYWORD CONFLICTS CAN
 C  OCCUR.)
  1360 IF(.NOT.EQUAL(KEYWD,KNRT,3)) GO TO 1370
-        JPRINT(14) = 1
         JPRINT(32) = 1
         CALL IFLD(ITEMP,ERROR)
         IF(.NOT.ERROR) JPRINT(32) = ITEMP
@@ -1412,13 +1420,9 @@ C  IF OPTION `FILE' WAS SELECTED, EXTRACT THE FILENAME FROM HOLLERITH
 C  ARRAY INTTMP:
 C
       IF(LENNM.NE.0) THEN
-        IDIV = IB - IA
         DO 4510 I = 1,LENNM
-          FILENM(I:I) = CHAR(MOD((INTTMP(I)-IA)/IDIV,256) + 65)
+          WRITE(FILENM(I),'(A1)') INTTMP(I)
  4510   CONTINUE
-        DO 4520 I = LENNM+1,80
-          FILENM(I:I) = CHAR(32)
- 4520   CONTINUE
       END IF
 C------------------------------------------------------------------------------
 C
@@ -1487,7 +1491,13 @@ C
         ELSE IF(JPRINT(55).GT.0) THEN
           WRITE(LFNPR,6113)
         END IF
-        IF(JPRINT(56).NE.0) WRITE(LFNPR,6120) JPRINT(56)
+        IF(JPRINT(56).NE.0) THEN
+          IF(.NOT.OPEN) THEN
+            WRITE(LFNPR,6120) JPRINT(56)
+          ELSE
+            WRITE(LFNPR,6121) JPRINT(56)/1000,MOD(JPRINT(56),1000)
+          END IF
+        END IF
         IF(DLTHR.GE.ZERO) WRITE(LFNPR,6160) DLTHR
         IF(JPRINT(57).NE.0) WRITE(LFNPR,6170) JPRINT(57)
 C------------------------------------------------------------------------------
@@ -1513,6 +1523,9 @@ C------------------------------------------------------------------------------
      * 'ANNEAL method + penalty')
  6120 FORMAT(1X,'      /NRTREF / : Number of reference structures set',
      * ' to',I3)
+ 6121 FORMAT(1X,'      /NRTREF / : Number of alpha reference ',
+     * 'structures set to',I3,/1X,'                  Number of beta  ',
+     * 'reference structures set to',I3)
  6160 FORMAT(1X,'      /NRTTHR / : Set to ',F5.2)
  6170 FORMAT(1X,'      /NRTDTL / : Set to ',I2)
 C------------------------------------------------------------------------------
@@ -2181,7 +2194,7 @@ C
         IF(IWMULP.EQ.2) WRITE(LFNPR,8080)
         IF(IWAPOL.NE.0) WRITE(LFNPR,8090)
         IF(JPRINT(11).NE.0) WRITE(LFNPR,8100)
-        IF(LENNM.NE.0) WRITE(LFNPR,8110) FILENM(1:52)
+        IF(LENNM.NE.0) WRITE(LFNPR,8110) (FILENM(I),I=1,52)
 C
         IF(IPRINT.LT.10) THEN
           WRITE(LFNPR,8500) IPRINT
@@ -2205,7 +2218,7 @@ C------------------------------------------------------------------------------
      *                ' by orbital and atom')
  8090 FORMAT(1X,'      /APOLAR / : Enforce apolar NBOs')
  8100 FORMAT(1X,'      /RPNAO  / : Revise TPNAO with TRYD and TRED')
- 8110 FORMAT(1X,'      /FILE   / : Set to ',A52)
+ 8110 FORMAT(1X,'      /FILE   / : Set to ',52A1)
  8500 FORMAT(1X,'      /PRINT  / : Print level set to',I3)
 C------------------------------------------------------------------------------
       END IF
@@ -2299,6 +2312,23 @@ C
         IF(JPRINT(49).EQ.0) JPRINT(49) = -LFNPNL
       END IF
 C
+C  SET RESONANCE OPTION ON IF THIS RUN INCLUDES NRT ANALYSIS:
+C
+      IF(JPRINT(32).NE.0) JPRINT(14) = 1
+C
+C  SHUT OFF NBO PRINTOUT FOR MULTI-REFERENCE NRT ANALYSIS:
+C  (THE NOBOND OPTION GIVES LOTS OF GARBAGE)
+C
+      IF((.NOT.OPEN.AND.JPRINT(56).GT.1).OR.
+     +   (OPEN.AND.JPRINT(56)/1000.GT.1).OR.
+     +   (OPEN.AND.MOD(JPRINT(56),1000).GT.1)) THEN
+        JPRINT(3)  = 0
+        JPRINT(5)  = 0
+        JPRINT(6)  = 0
+        JPRINT(10) = 1
+        JPRINT(36) = 0
+      END IF
+C
 C  PRINT HYBRIDS IF THE NBO OUTPUT IS REQUESTED:
 C
       IWHYBS = JPRINT(5)
@@ -2345,6 +2375,7 @@ C
      +       LU(MAXATM),IZNUC(MAXATM),IATCR(MAXATM)
       COMMON/NBAO/LCTR(MAXBAS),LANG(MAXBAS)
 C
+      SAVE IREAD
       DATA IREAD/4HREAD/
 C
 C  NBODIM:  SET UP DIMENSIONING INFORMATION, LISTS IN COMMON/NBATOM/,
@@ -2436,8 +2467,7 @@ C
   480   IF(N.LE.MXAO3) GO TO 500
         MXAO3 = N
   500 CONTINUE
-      MXBO = MXAO + MXAO2
-      IF(IW3C.EQ.1) MXBO = MXBO + MXAO3
+      MXBO = MXAO + MXAO2 + MXAO3
 C
 C  COMPUTE STORAGE REQUIREMENTS AND COMPARE WITH AVAILABLE CORE SPACE:
 C
@@ -2622,6 +2652,7 @@ C
       DIMENSION T(NDIM,NDIM),DM(NDIM,NDIM),A(1)
       CHARACTER*80 TITLE
 C
+      SAVE ONE,IPRNT,IWRIT,IREAD
       DATA ONE/1.0D0/
       DATA IPRNT,IWRIT,IREAD/4HPRNT,4HWRIT,4HREAD/
 C
@@ -2959,6 +2990,7 @@ C
       DIMENSION DM(NDIM,NDIM),T(NDIM,NDIM),A(1)
       CHARACTER*80 TITLE
 C
+      SAVE ZERO,ONE,IPRNT,IWRIT
       DATA ZERO,ONE/0.0D0,1.0D0/
       DATA IPRNT,IWRIT/4HPRNT,4HWRIT/
 C
@@ -3157,6 +3189,7 @@ C
       DIMENSION DM(NDIM,NDIM),T(NDIM,NDIM),A(1)
       CHARACTER*80 TITLE
 C
+      SAVE IPRNT,IWRIT
       DATA IPRNT,IWRIT/4HPRNT,4HWRIT/
 C
 C  PLACE ALPHA OR BETA OCCUPATION MATRIX IN DM AND TRANSFORM FROM THE AO
@@ -3332,6 +3365,7 @@ C
       DIMENSION DM(NDIM,NDIM),T(NDIM,NDIM),A(1)
       CHARACTER*80 TITLE
 C
+      SAVE IPRNT,IWRIT
       DATA IPRNT,IWRIT/4HPRNT,4HWRIT/
 C
 C  SIMULATE THE ALPHA/BETA NAO SUBPROGRAM:
@@ -3504,6 +3538,7 @@ C
 C
       DIMENSION T(NDIM,NDIM),DM(NDIM,NDIM),A(1)
 C
+      SAVE ZERO,IPRNT,IWRIT,IREAD
       DATA IPRNT,IWRIT,IREAD/4HPRNT,4HWRIT,4HREAD/
       DATA ZERO/0.0D0/
 C
@@ -4196,7 +4231,9 @@ C
    80   CONTINUE
         NELEC = NINT(TOT)
         NLOW = NATOMS*(NATOMS-1)/2
-        MAXREF = MAX(JPRINT(56),1)
+        IF(ISPIN.EQ. 0) MAXREF = MAX(JPRINT(56),1)
+        IF(ISPIN.EQ. 2) MAXREF = MAX(JPRINT(56)/1000,1)
+        IF(ISPIN.EQ.-2) MAXREF = MAX(MOD(JPRINT(56),1000),1)
 C
 C  CAREFULLY DETERMINE THE MAXIMUM NUMBER OF RESONANCE STRUCTURES (MAXRES)
 C  WHICH THE SCRATCH VECTOR CAN ACCOMODATE.  ASSUME NDIM IS LARGER THAN
@@ -4307,7 +4344,10 @@ C
       DIMENSION BS(NDIM,NDIM),VMAYER(NATOMS),BMAYER(NATOMS,NATOMS),
      *          IANG(5),ANGL(60),LANG(60),CUBICF(7)
       CHARACTER*80 TITLE
-      DATA IANG/'s','p','d','f','g'/
+C
+      SAVE IANG,LANG,ANGL,CUBICF,ZERO
+C
+      DATA IANG/1Hs,1Hp,1Hd,1Hf,1Hg/
       DATA LANG/ 51,151,152,153,251,252,253,254,255,
      *          351,352,353,354,355,356,357,
      *          451,452,453,454,455,456,457,458,459,
@@ -4326,6 +4366,7 @@ C
      *   4Hyyyz,4Hyyzz,4Hyzzz,4Hzzzz/
       DATA CUBICF/4H(d1),4H(d2),4H(d3),4H(b) ,4H(e1),4H(e2),4H(e3)/
       DATA ZERO/0.0D0/
+C
       IF(IWCUBF.EQ.0) GO TO 20
 C  IF THE F FUNCTIONS ARE A CUBIC SET, INSERT THE PROPER LABELS:
         DO 10 I=1,7
@@ -4377,10 +4418,10 @@ C
       CALL AOUT(VMAYER,NATOMS,NATOMS,1,TITLE,0,1)
       RETURN
  1000 FORMAT(//1X,'Total gross Mulliken populations by atom:',
-     * //4X,'Atom #',7X,'Total')
+     * //4X,'Atom No',6X,'Total')
  1100 FORMAT(//1X,'Input atomic orbitals, gross Mulliken populations:',
-     +//1X,' AO',2X,'Atom #',2X,'lang',2X,'Mulliken Population',
-     +4X,'Atom #',7X,'Total')
+     +//1X,' AO',2X,'Atom No',1X,'lang',2X,'Mulliken Population',
+     +4X,'Atom No',6X,'Total')
  1200 FORMAT(1X,79('-'))
  1300 FORMAT(1X,I3,3X,A2,I3,2X,A1,A4,F13.7)
  1600 FORMAT(/1X,'Total number of electrons: ',F11.6)
@@ -4399,6 +4440,9 @@ C*****************************************************************************
       DIMENSION T(NDIM,NDIM),DM(NDIM,NDIM),A(6,6),B(6),M(6),
      *  RENORM(NDIM),
      *  LF(3,3),LFCUB(3,3),LFT(3,3),LFCUBT(3,3),LG(3,3),LGT(3,3)
+C
+      SAVE LF,LFCUB,LFT,LFCUBT,LG,LGT
+      SAVE ZERO,ONE,TWO,THREE,FOUR,SIX,EIGHT
       DATA LF    /301,304,306,302,307,309,303,308,310/
       DATA LFCUB /306,304,301,309,302,307,303,308,310/
       DATA LFT   /151,356,352,152,357,353,153,354,351/
@@ -4965,6 +5009,8 @@ C
      +          SBLK(MXAOLM,MXAOLM),EVAL(NBAS),EVAL2(NBAS),
      +          LISTAO(MXAOLM,9),C(NBLOCK),EVECT(MXAOLM,MXAOLM)
       CHARACTER*80 TITLE
+C
+      SAVE ZERO,ONE,IPRNT,IWRIT,IREAD
       DATA ZERO,ONE/0.0D0,1.0D0/
       DATA IPRNT,IWRIT,IREAD/4HPRNT,4HWRIT,4HREAD/
 C
@@ -5061,7 +5107,7 @@ C
 C  READ IN PRE-ORTHOGONAL T-NAO DATA:
 C
       IF(IOINQR(IWPNAO).NE.IREAD) GO TO 300
-        CALL RDPPNA(T,OCC)
+        CALL RDPPNA(T,OCC,IWPNAO)
 C
 C  RECOMPUTE AND SYMMETRY-AVERAGE WEIGHTS, REORGANIZE LSTOCC IF THE INPUT
 C  PNAOS ARE RPNAOS:
@@ -5184,8 +5230,12 @@ C
      *     OCCEC(20),BMO(NATOMS,NATOMS)
       DIMENSION IANG(5),ANGL(25),LANG(25),CUBICF(7)
 C
-      DATA IRYD/'Ryd'/
-      DATA IANG/'s','p','d','f','g'/
+      SAVE IRYD,IANG,LANG
+      SAVE ANGL,CUBICF,ZERO,TENTH,TWO
+      SAVE TEST,TEST2,ALLOW,ALLOW2,ICHCOR,ICHVAL,ICHRYD
+C
+      DATA IRYD/3HRyd/
+      DATA IANG/1Hs,1Hp,1Hd,1Hf,1Hg/
       DATA LANG/ 51,151,152,153,251,252,253,254,255,
      *          351,352,353,354,355,356,357,
      *          451,452,453,454,455,456,457,458,459/
@@ -5202,7 +5252,7 @@ C  be slightly greater than twice TEST (ALLOW):
 C
       DATA TEST,TEST2/1.0D-5,2.1D-5/
       DATA ALLOW,ALLOW2/1.0D-3,2.1D-3/
-      DATA ICHCOR,ICHVAL,ICHRYD/'Cor','Val','Ryd'/
+      DATA ICHCOR,ICHVAL,ICHRYD/3HCor,3HVal,3HRyd/
 C
 C  If the f functions are a cubic set, insert the proper labels:
 C
@@ -5786,12 +5836,12 @@ C
   900 FORMAT(//,1X,
      +'NATURAL POPULATIONS:  Natural atomic orbital occupancies ',/,1X,
      +'                                                         ',/,1X,
-     +' NAO Atom #  lang   Type(AO)    Occupancy      Energy    ',/,1X,
+     +' NAO Atom No lang   Type(AO)    Occupancy      Energy    ',/,1X,
      +'---------------------------------------------------------')
   910 FORMAT(//,1X,
      +'NATURAL POPULATIONS:  Natural atomic orbital occupancies ',/,1X,
      +'                                                         ',/,1X,
-     +' NAO Atom #  lang   Type(AO)    Occupancy                ',/,1X,
+     +' NAO Atom No lang   Type(AO)    Occupancy                ',/,1X,
      +'-------------------------------------------              ')
   920 FORMAT(1X,I3,3X,A2,I3,2X,A1,A4,2X,A3,'(',I2,A1,')',4X,
      + F8.5,4X,F10.5)
@@ -5817,7 +5867,7 @@ C
      +'Summary of Natural Population Analysis:                  ',/,1X,
      +'                                                         ',/,1X,
      +'                                      Natural Population ',/,1X,
-     +'              Natural   ',47('-'),/,1X,3X,'Atom #',5X,
+     +'              Natural   ',47('-'),/,1X,3X,'Atom No',4X,
      +'Charge',8X,'Core',6X,'Valence',4X,'Rydberg',6X,'Total',/,1X,
      +71('-'))
   940 FORMAT(1X,4X,A2,I3,2X,F9.5,4X,F9.5,3X,F9.5,2X,F9.5,3X,F9.5)
@@ -5843,7 +5893,7 @@ C
      +'% of ',I3,')',/,1X,
      +'--------------------------------------------------------')
  1040 FORMAT(/1X,
-     +'   Atom #          Natural Electron Configuration',/,1X,
+     +'   Atom No         Natural Electron Configuration',/,1X,
      + 76('-'))
  1050 FORMAT(1X,4X,A2,I3,6X,6X,(13(I1,A1,'(',F5.2,')')))
  1060 FORMAT(1X,4X,A2,I3,6X,'[core]',(13(I1,A1,'(',F5.2,')')))
@@ -5871,7 +5921,8 @@ C
      +          SCR(NDIM*(NDIM+5))
       DIMENSION BASIS(4)
 C
-      DATA BASIS/' NAO',' NHO',' NBO','NLMO'/
+      SAVE BASIS,ZERO
+      DATA BASIS/4H NAO,4H NHO,4H NBO,4HNLMO/
       DATA ZERO/0.0D0/
 C
 C  Input:
@@ -5948,6 +5999,7 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION S(NDIM,NDIM),LISTAO(MXAOLM,9),A(NL,NL),B(NL,NL)
+      SAVE ONE,ZERO
       DATA ONE,ZERO/1.0D0,0.0D0/
 C
 C  AVERAGE THE AO DENSITY MATRIX ELEMENTS OVER THE M=2*L+1 COMPONENTS
@@ -5984,8 +6036,12 @@ C
 C  USE JACOBI TO DIAGONALIZE B**(-1/2)*A*B**(-1/2); A AND B ARE DESTROYED.
 C
       DIMENSION A(N,N),B(N,N),EVAL(N),C(N,N)
+C
+      SAVE ZERO,ONE
       DATA ZERO,ONE/0.0D0,1.0D0/
+C
 C  FIRST FORM B**(-1/2) AND STORE IT IN B:
+C
       CALL JACOBI(N,B,EVAL,C,N,N,0)
       DO 10 I=1,N
    10   EVAL(I)=ONE/SQRT(EVAL(I))
@@ -6080,6 +6136,7 @@ C
       DIMENSION T(NDIM,NDIM),S(NDIM,NDIM),WT(NDIM)
       CHARACTER*80 TITLE
 C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  RECOMPUTE OCCUPANCY WEIGHTS
@@ -6158,6 +6215,8 @@ C******************************************************************
       COMMON/NBIO/LFNIN,LFNPR,LFNAO,LFNPNA,LFNNAO,LFNPNH,LFNNHO,LFNPNB,
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
+C
+      SAVE ZERO,ONE,NTIME,WTTHR,DIAGTH,DANGER
       DATA ZERO,ONE/0.0D0,1.0D0/
       DATA NTIME/0/
 C
@@ -6287,7 +6346,10 @@ C        TO THE ORTHONORMAL OCCUPIED (LSTOCC) ORBITALS;
 C
       DIMENSION T(NDIM,NDIM),S(NDIM,NDIM),LSTOCC(NDIM),LSTEMT(NDIM),
      *              SBLK(NDIM,NDIM)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
+C
       DO 30 I=1,NBAS
         DO 30 J=1,NOCC
           JP=LSTOCC(J)
@@ -6326,6 +6388,8 @@ C*****************************************************************************
       DIMENSION T(NDIM,NDIM),S(NDIM,NDIM),TPNAO(NDIM,NDIM),OCC(NDIM),
      +          DMBLK(MXAOLM,MXAOLM),SBLK(MXAOLM,MXAOLM),EVAL(NBAS),
      +          EVECT(MXAOLM,MXAOLM),EVAL2(NBAS),LIST(MXAOLM)
+C
+      SAVE ONE
       DATA ONE/1.0D0/
 C
 C  COMPUTE NEW RYDBERG NAOS AFTER THE SCHMIDT ORTHOGONALIZATION TO
@@ -6386,6 +6450,8 @@ C*****************************************************************************
       DIMENSION T(NDIM,NDIM),S(NDIM,NDIM),TPNAO(NDIM,NDIM),OCC(NBAS),
      *        DMBLK(NRYDC,NRYDC),SBLK(NRYDC,NRYDC),EVAL(NBAS),
      *        EVECT(NRYDC,NRYDC),LARC(NRYDC),LIST(NRYDC),EVAL2(NBAS)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  DIAGONALIZE ONE RYDBERG BLOCK, UPDATE T-NAO (IN T) AND, IF IRPNAO.EQ.1,
@@ -6482,6 +6548,8 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
       DIMENSION WT(NDIM),LIST1(NBAS),LIST2(NBAS),LSTEMT(NBAS)
+C
+      SAVE ONE,WTTHR
       DATA ONE,WTTHR/1.0D0,1.0D-4/
 C
 C   DIVIDE THE RYDBERG ORBITALS INTO 2 GROUPS:
@@ -6575,6 +6643,8 @@ C*****************************************************************************
      +       LORBC(MAXBAS),LORB(MAXBAS)
       DIMENSION DM(NDIM,NDIM),BLK(NC,NC),C(NC,NC),EVAL(NDIM),
      +  T(NDIM,NDIM),TPNAO(NDIM,NDIM),IRANK(NBAS)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  FIND THE REDIAGONALIZATION TRANSFORMATION FOR THE DM SUBBLOCK FOR
@@ -6691,10 +6761,14 @@ C
      * Q(MXAO,NDIM),BLK(MXBO,MXBO),EVAL(MXBO),C(MXBO,MXBO),
      * P(MXAO,MXAO),TA(MXAO,MXAO),HYB(MXAO),VA(MXAO),VB(MXAO),
      * GUIDE(NATOMS,NATOMS),TOPO(NATOMS*NATOMS)
+C
+      SAVE GTHRSH,ISTAR,IBLNK,NAME,LRY,LCR,ZERO,ZEROP,TENTH,ONE,TWO,FOUR
+      SAVE TWOP,PT8,PT99,PRJINC
+C
       DATA GTHRSH/1.5D-1/
-      DATA ISTAR,IBLNK/'*',' '/
-      DATA NAME/'LP','BD','3C'/
-      DATA LRY,LCR/'RY','CR'/
+      DATA ISTAR,IBLNK/1H*,1H /
+      DATA NAME/2HLP,2HBD,2H3C/
+      DATA LRY,LCR/2HRY,2HCR/
       DATA ZERO,ZEROP,TENTH,ONE,TWO,FOUR
      * /0.D0,1.D-6,0.1D0,1.0D0,2.0D0,4.0D0/
       DATA TWOP/2.0001D0/
@@ -6823,7 +6897,7 @@ C
 C  Remove core orbitals from the density matrix:
 C
       IBD = 0
-      CALL CORE(DM,T,BORB,POL,Q,HYB,BNDOCC,IBD,DETAIL,LFNPR)
+      CALL COR(DM,T,BORB,POL,Q,HYB,BNDOCC,IBD,DETAIL,LFNPR)
 C
 C  Main NHO loops
 C  --------------
@@ -7252,6 +7326,9 @@ C
      * HYB(MXAO),VA(MXAO),VB(MXAO),TOPO(NATOMS,NATOMS)
       DIMENSION KEYWD(6),KLONE(4),KBOND(4),K3CBON(6),KALPHA(5),
      * KBETA(4),IVAL(4),KALT(4)
+C
+      SAVE KLONE,KBOND,K3CBON,KALPHA,KBETA,KS,KD,KT,KQ,KALT
+C
       DATA KLONE/1HL,1HO,1HN,1HE/,
      *     KBOND/1HB,1HO,1HN,1HD/,
      *     K3CBON/1H3,1HC,1HB,1HO,1HN,1HD/,
@@ -7491,7 +7568,9 @@ C
       DIMENSION NAME(3),HYBEXP(3),KTOPO(MAXATM,MAXATM),KFLG(10)
       DIMENSION SCR(MAXATM*(MAXATM-1)/2),IPT(MAXATM*(MAXATM-1)/2)
 C
-      DATA ISTAR,IBLNK,NAME,LRY,LCR/'*',' ','LP','BD','3C','RY','CR'/
+      SAVE ISTAR,IBLNK,NAME,LRY,LCR
+      SAVE ZERO,ZEROP,TENTH,PT99,ONE,TWO,TWOP
+      DATA ISTAR,IBLNK,NAME,LRY,LCR/1H*,1H ,2HLP,2HBD,2H3C,2HRY,2HCR/
       DATA ZERO,ZEROP,TENTH,PT99,ONE,TWO,TWOP
      + /0.0D0,1.0D-6,0.1D0,0.99D0,1.0D0,2.0D0,2.0001D0/
 C
@@ -7502,6 +7581,7 @@ C
 C  PRJINC, the amount to increase PRJTHR by if problems with linear
 C  dependency between the hybrids arise.
 C
+      SAVE PRJINC
       DATA PRJINC/0.05D0/
 C
       NOPVAL(I) = NORBS(I) - INO(I)
@@ -7620,7 +7700,7 @@ C
 C  Remove core orbitals from the density matrix:
 C
       IBD = 0
-      CALL CORE(DM,T,BORB,POL,Q,HYB,BNDOCC,IBD,DETAIL,LFNPR)
+      CALL COR(DM,T,BORB,POL,Q,HYB,BNDOCC,IBD,DETAIL,LFNPR)
 C
 C  Return here if there are still more lone pairs or bonds to be found.
 C  Lower the occupancy threshold for acceptance by a tenth:
@@ -8113,7 +8193,8 @@ C
       DIMENSION T(NDIM,NDIM),BNDOCC(NDIM)
       DIMENSION NAME(3)
 C
-      DATA LBD,L3C,NAME,LSTAR/'BD','3C','CR','LP','RY','*'/
+      SAVE LBD,L3C,NAME,LSTAR
+      DATA LBD,L3C,NAME,LSTAR/2HBD,2H3C,2HCR,2HLP,2HRY,1H*/
 C
 C  Reorder the NBOs according to bond type and constituent atomic centers:
 C
@@ -8324,9 +8405,11 @@ C
       DIMENSION DM(NDIM,NDIM),T(NDIM,NDIM),HYB(MXAO),THYB(NDIM,NDIM),
      +          S(NDIM,NDIM),OCC(NDIM),SCR(NDIM),ISCR(NDIM)
       DIMENSION PCT(5),IAT(3)
-      DATA LLP,LBD,L3C,LCR,LRY/'LP','BD','3C','CR','RY'/
+C
+      SAVE LLP,LBD,L3C,LCR,LRY,ZERO,TENTH,ONE,THRESH,LSTAR,LBLNK
+      DATA LLP,LBD,L3C,LCR,LRY/2HLP,2HBD,2H3C,2HCR,2HRY/
       DATA ZERO,TENTH,ONE,THRESH/0.0D0,0.1D0,1.0D0,1.0D-4/
-      DATA LSTAR,LBLNK/'*',' '/
+      DATA LSTAR,LBLNK/1H*,1H /
 C
 C  Form a temporary NAO to NHO transformation matrix.  Check hybrid
 C  overlap to make sure the NBO's were properly labelled as Lewis
@@ -8594,13 +8677,20 @@ C
      +            LFNDAF,LFNDEF
       COMMON/NBTHR/THRSET,PRJSET,ACCTHR,CRTSET,E2THR,ATHR,PTHR,ETHR,
      +             DTHR,DLTHR,CHSTHR
+C
       DIMENSION T(NDIM,NDIM),HYB(MXAO),BNDOCC(NDIM),THYB(NDIM,NDIM),
      * PCT(5),POW(5),LNAME(5),ISP(3),NAM(3),ICH(3,2),HYCOEF(NDIM)
-      DATA LLP,LBD,L3C,LCR,LRY/'LP','BD','3C','CR','RY'/
-      DATA LNAME/'s','p','d','f','g'/
+C
+      SAVE LLP,LBD,L3C,LCR,LRY
+      SAVE ZERO,THRESH,T99,T99P
+      SAVE TENTH,HUNDRD,TTHOTH
+      SAVE LHYP,LBLNK,LSTAR,L2BLNK
+C
+      DATA LLP,LBD,L3C,LCR,LRY/2HLP,2HBD,2H3C,2HCR,2HRY/
+      DATA LNAME/1Hs,1Hp,1Hd,1Hf,1Hg/
       DATA ZERO,THRESH,T99,T99P/0.0D0,1.D-2,99.99D0,99.995D0/
       DATA TENTH,HUNDRD,TTHOTH/0.1D0,100.0D0,0.0001D0/
-      DATA LHYP,LBLNK,LSTAR,L2BLNK/'-',' ','*','  '/
+      DATA LHYP,LBLNK,LSTAR,L2BLNK/1H-,1H ,1H*,2H  /
 C
 C  Count the number of electrons:
 C
@@ -8820,6 +8910,7 @@ C
 C  ANALYZE INPUT HYBRID 'HYB' FOR POLARIZATION COEFFICIENT 'COEF'
 C  AND PERCENTAGES OF EACH ANGULAR MOMENTUM COMPONENT.
 C
+      SAVE ZERO,THRESH,HUNDRD
       DATA ZERO,THRESH,HUNDRD/0.0D0,1.D-4,100.0D0/
 C
       NL = 0
@@ -8882,6 +8973,7 @@ C
      +            LFNDAF,LFNDEF
       DIMENSION HYB(1),THYB(NDIM,NDIM),HYCOEF(NDIM)
 C
+      SAVE ZERO,ONE,THRESH
       DATA ZERO,ONE,THRESH/0.0D0,1.0D0,1.0D-4/
 C
 C  FORM FULL NAO TO NHO TRANFORMATION IN THYB, ADDING ONE HYBRID WITH
@@ -8947,8 +9039,9 @@ C
       DIMENSION ISTR(8),PHYB(3),XYZ(3,2),KHYB(3),AZI(2),POL(2),DEV(2)
       DIMENSION ISKIP(2)
 C
-      DATA LCR,LLP,LRY,LBD,L3C/'CR','LP','RY','BD','3C'/
-      DATA LHYP/'-'/
+      SAVE LCR,LLP,LRY,LBD,L3C,LHYP,ZERO,ONE,THRESH,CUTOFF
+      DATA LCR,LLP,LRY,LBD,L3C/2HCR,2HLP,2HRY,2HBD,2H3C/
+      DATA LHYP/1H-/
       DATA ZERO,ONE,THRESH,CUTOFF/0.0D0,1.0D0,1.0D-4,1.0D-8/
 C
 C  Compute hybrid directionality and bond bending for selected NBO's:
@@ -9137,6 +9230,7 @@ C
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
 C
+      SAVE ZERO,THRESH,CUTOFF
       DATA ZERO,THRESH,CUTOFF/0.0D0,1.0D-4,1.0D-8/
 C
 C  Add the px,py,pz components of this hybrid vectorially and determine
@@ -9240,6 +9334,9 @@ C
       COMMON/NBIO/LFNIN,LFNPR,LFNAO,LFNPNA,LFNNAO,LFNPNH,LFNNHO,LFNPNB,
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
+      COMMON/NBOPT/IWDM,IW3C,IWAPOL,IWHYBS,IWPNAO,IWTNAO,IWTNAB,
+     + IWTNBO,IWFOCK,IWCUBF,IPSEUD,KOPT,IPRINT,IWDETL,IWMULP,ICHOOS,
+     + JCORE,JPRINT(60)
 C
       DIMENSION IATOMS(NATOMS)
       LOGICAL BDFIND
@@ -9330,7 +9427,7 @@ C
       END IF
       RETURN
 C
-  800 WRITE(LFNPR,1800)
+  800 IF(JPRINT(5).EQ.1) WRITE(LFNPR,1800)
       NMOLA = -NMOLA
       RETURN
 C
@@ -9349,6 +9446,8 @@ C*****************************************************************************
       COMMON/NBMOL/NMOLEC,MOLAT(MAXATM),MOLEC(MAXATM,MAXATM),
      +              NMOLA,MOLATA(MAXATM),MOLECA(MAXATM,MAXATM)
       DIMENSION BNDOCC(NBAS)
+C
+      SAVE LBD,L3C,LSTAR,THRESH,ONE,ZERO,TWO,DONTHR
       DATA LBD,L3C,LSTAR/2HBD,2H3C,1H*/
       DATA THRESH,ONE,ZERO,TWO/1.50D0,1.0D0,0.0D0,2.0D0/
       DATA DONTHR/1.0D-1/
@@ -9430,9 +9529,11 @@ C
       DIMENSION BNDOCC(NBAS),F(NDIM,NDIM),MOLNBO(2,NBAS,NMOLEC)
       DIMENSION INAM(3),JNAM(3),ICH(3,2),JCH(3,2),ISP(3),JSP(3)
 C
+      SAVE LBD,L3C,LBLNK1,LBLNK2,LHYP,HUNDTH
+      SAVE AUKCAL,EVKCAL,ZERO,ONE,TWO,TEN
       DATA LBD/2HBD/,L3C/2H3C/,LBLNK1/1H /,LBLNK2/2H  /,LHYP/1H-/
       DATA HUNDTH/0.01D0/
-      DATA AUKCAL/627.51D0/,EVKCAL/23.060D0/
+      DATA AUKCAL/627.52791D0/,EVKCAL/23.060D0/
       DATA ZERO,ONE,TWO,TEN/0.0D0,1.0D0,2.0D0,1.0D1/
 C
 C  PERFORM 2ND ORDER ANALYSIS OF THE FOCK MATRIX:
@@ -9616,9 +9717,10 @@ C
      +          SCR(1)
       DIMENSION ISTR(80),ILAB(9)
 C
+      SAVE ZERO,EPS,TWO,TEN,HUNDRD,TENTH,LSTAR,LRY
       DATA ZERO,EPS,TWO,TEN,HUNDRD/0.0D0,5.0D-6,2.0D0,1.0D1,1.0D2/
       DATA TENTH/1.0D-1/
-      DATA LSTAR,LRY/'*','RY'/
+      DATA LSTAR,LRY/1H*,2HRY/
 C
 C  Set flag to zero -- Determine strong delocalizations from perturbative
 C  analysis of the NBO Fock matrix:
@@ -9809,8 +9911,9 @@ C
      + JCORE,JPRINT(60)
       DIMENSION LIST(NDIM),DEL(NDIM),DELOC(NDIM,NDIM)
 C
+      SAVE ZERO,ONE,CUTOFF,TENTH,AUKCAL,EVKCAL
       DATA ZERO,ONE,CUTOFF,TENTH/0.0D0,1.0D0,1.0D-4,0.1D0/
-      DATA AUKCAL,EVKCAL/627.51,23.060/
+      DATA AUKCAL,EVKCAL/627.52791,23.060/
 C
 C Determine the conversion factor to kcal:
 C
@@ -9879,7 +9982,8 @@ C
       DIMENSION LIST(NDIM),ISTR(80)
       INTEGER IK(MAXD)
 C
-      DATA ICOMMA,ILEFT,IRIGHT/',','(',')'/
+      SAVE ICOMMA,ILEFT,IRIGHT
+      DATA ICOMMA,ILEFT,IRIGHT/1H,,1H(,1H)/
 C
 C  Build a character string (for the NBO summary table) which contains
 C  the delocalization information for NBO # IBO:
@@ -9947,6 +10051,7 @@ C
 C
 C  IMPORTANT PARAMETERS:
 C
+      SAVE DIFFER,DONE,EPS,DEGTHR,NOFFMX,ZERO,ONE,TEN,HUNDRD
       DATA DIFFER,DONE,EPS/1.0D-5,1.0D-10,1.0D-11/
 C
 C  NOFFMX IS SET TO THE DIMENSION OF VECTORS ILIST,JLIST,IOFF,JOFF,IUNIQ,JUNIQ:
@@ -10325,11 +10430,17 @@ C
      * BORDER(NATOMS,NATOMS),OWBORD(NATOMS,NATOMS),
      * PCT(5),POW(5),LNAME(5),ISP(3),NAM(3),ICH(3,2)
       CHARACTER*80 TITLE
-      DATA LLP,LBD,L3C,LCR,LRY/'LP','BD','3C','CR','RY'/
-      DATA LNAME/'s','p','d','f','g'/
+C
+      SAVE LLP,LBD,L3C,LCR,LRY
+      SAVE LNAME,ZERO,HUNDTH,T99,T99P
+      SAVE TWO,TENTH,HUNDRD,THR
+      SAVE LHYP,LBLNK,L2BLNK,BOTHR
+C
+      DATA LLP,LBD,L3C,LCR,LRY/2HLP,2HBD,2H3C,2HCR,2HRY/
+      DATA LNAME/1Hs,1Hp,1Hd,1Hf,1Hg/
       DATA ZERO,HUNDTH,T99,T99P/0.0D0,1.D-2,99.99D0,99.995D0/
       DATA TWO,TENTH,HUNDRD,THR/2.0D0,0.1D0,100.0D0,1.0D-6/
-      DATA LHYP,LBLNK,L2BLNK/'-',' ','  '/
+      DATA LHYP,LBLNK,L2BLNK/1H-,1H ,2H  /
       DATA BOTHR/2.0D-3/
 C
       CLOSED=.TRUE.
@@ -10560,6 +10671,7 @@ C
      +         INDEX(NDIM)
       DIMENSION ISTR(14),COUPLE(3)
 C
+      SAVE TENTEN,SMALL,ZERO,TENTH,ONE,TWO,TOESU,IHYPH,IBLNK
       DATA TENTEN,SMALL,ZERO,TENTH,ONE,TWO/1.0D-10,1.0D-5,0.0D0,0.1D0,
      +                                     1.0D0,2.0D0/
       DATA TOESU/4.803242E-10/
@@ -10918,6 +11030,7 @@ C
       DIMENSION DX(NDIM,NDIM),DY(NDIM,NDIM),DZ(NDIM,NDIM),
      +          ATCOOR(3,NATOMS)
 C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  Fetch the atomic coordinates:
@@ -10965,7 +11078,7 @@ C      SUBROUTINE FORMT(T,Q,POL)
 C      SUBROUTINE CYCLES(ITER,THRESH,GUIDE,BNDOCC,TOPO,ICONT)
 C
 C*****************************************************************************
-      SUBROUTINE CORE(DM,T,BORB,POL,Q,HYB,BNDOCC,IBD,DETAIL,LFNPR)
+      SUBROUTINE COR(DM,T,BORB,POL,Q,HYB,BNDOCC,IBD,DETAIL,LFNPR)
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
 C
@@ -10982,12 +11095,16 @@ C
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
       COMMON/NBATOM/IATNO(MAXATM),INO(MAXATM),NORBS(MAXATM),ILL(MAXATM),
      +       IUL(MAXATM),IZNUC(MAXATM),IATCR(MAXATM)
+C
       DIMENSION DM(NDIM,NDIM),T(NDIM,NDIM),BORB(MXBO),POL(NDIM,3),
      *  Q(MXAO,NDIM),HYB(MXAO),BNDOCC(NDIM),ICORE(4),IVAL(4),IANG(5)
+C
+      SAVE ZERO,ONE,IBLK,ICOR,IRYD,ICHCOR,ICHVAL,IANG
+C
       DATA ZERO,ONE/0.0D0,1.0D0/
-      DATA IBLK,ICOR,IRYD/'  ','CR','Ryd'/
-      DATA ICHCOR,ICHVAL/'Cor','Val'/
-      DATA IANG/'s','p','d','f','g'/
+      DATA IBLK,ICOR,IRYD/2H  ,2HCR,3HRyd/
+      DATA ICHCOR,ICHVAL/3HCor,3HVal/
+      DATA IANG/1Hs,1Hp,1Hd,1Hf,1Hg/
 C
 C  Label NAO's on each center:
 C
@@ -11117,6 +11234,7 @@ C
 C*****************************************************************************
       FUNCTION IWPRJ(NCTR)
 C*****************************************************************************
+      SAVE NCTR0
       DATA NCTR0/0/
 C
 C  RETURN 0 (NO PROJECTION WANTED) IF NCTR IS UNCHANGED, 1 OTHERWISE.
@@ -11200,41 +11318,50 @@ C  ZERO THE MATRIX 'BLK' AND LOAD IN ATOMIC BLOCKS OF DENSITY
 C  MATRIX 'DM' FOR THE ATOMS LISTED IN 'IAT'
 C
       PARAMETER(MAXATM = 99,MAXBAS = 500)
+C
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
       COMMON/NBATOM/IATNO(MAXATM),INO(MAXATM),NORBS(MAXATM),ILL(MAXATM),
      +       IUL(MAXATM),IZNUC(MAXATM),IATCR(MAXATM)
+C
       DIMENSION BLK(MXBO,MXBO),DM(NDIM,NDIM),IAT(3)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
-      IAT(1)=IAT1
-      IAT(2)=IAT2
-      IAT(3)=IAT3
-C  ZERO 'BLK'
-      DO 10 I=1,MXBO
-        DO 10 J=1,MXBO
-   10     BLK(I,J)=ZERO
-      NROW=0
-      NCOL=0
-      DO 50 I=1,3
-        IA=IAT(I)
+C
+      IAT(1) = IAT1
+      IAT(2) = IAT2
+      IAT(3) = IAT3
+C
+C  ZERO 'BLK':
+C
+      DO 10 J = 1,MXBO
+        DO 5 I = 1,MXBO
+          BLK(I,J) = ZERO
+    5   CONTINUE
+   10 CONTINUE
+      NROW = 0
+      NCOL = 0
+      DO 50 I = 1,3
+        IA = IAT(I)
         IF(IA.EQ.0) GO TO 50
-        IU=IUL(IA)
-        IL=ILL(IA)
-        DO 40 IROW=IL,IU
-          NROW=NROW+1
-          NCOL=0
-          DO 30 J=1,3
-            JA=IAT(J)
+        IU = IUL(IA)
+        IL = ILL(IA)
+        DO 40 IROW = IL,IU
+          NROW = NROW + 1
+          NCOL = 0
+          DO 30 J = 1,3
+            JA = IAT(J)
             IF(JA.EQ.0) GO TO 30
-            JU=IUL(JA)
-            JL=ILL(JA)
-            DO 20 ICOL=JL,JU
-              NCOL=NCOL+1
-              BLK(NROW,NCOL)=DM(IROW,ICOL)
-   20         CONTINUE
-   30       CONTINUE
-   40     CONTINUE
-   50   CONTINUE
-      NB=NROW
+            JU = IUL(JA)
+            JL = ILL(JA)
+            DO 20 ICOL = JL,JU
+              NCOL = NCOL + 1
+              BLK(NROW,NCOL) = DM(IROW,ICOL)
+   20       CONTINUE
+   30     CONTINUE
+   40   CONTINUE
+   50 CONTINUE
+      NB = NROW
       RETURN
       END
 C*****************************************************************************
@@ -11259,6 +11386,7 @@ C
       DIMENSION IAT(3),HYB(MXAO),BORB(MXBO),Q(MXAO,NDIM),P(MXAO,MXAO),
      *  PK(MXAO,MXAO),VA(MXAO),VB(MXAO),HYBEXP(3)
 C
+      SAVE ZERO,ONE,EPS
       DATA ZERO,ONE,EPS/0.0D0,1.0D0,1.0D-5/
 C
 C  LOOP OVER ATOMIC HYBRIDS:
@@ -11326,6 +11454,7 @@ C
 C
       DIMENSION POL(NDIM,3),Q(MXAO,NDIM),BORB(MXBO),IAT(3),HYB(MXAO)
 C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  LOOP OVER CENTERS:
@@ -11396,6 +11525,7 @@ C
       DIMENSION Q(MXAO,NDIM),S(MXBO,MXBO),TA(MXAO,MXAO),
      *                    EVAL(MXBO),C(MXBO,MXBO)
 C
+      SAVE ZERO,ONE,TOOSML
       DATA ZERO,ONE/0.0D0,1.0D0/
       DATA TOOSML/1.0D-4/
 C
@@ -11516,6 +11646,7 @@ C
       DIMENSION P(MXAO,MXAO),VK(MXAO),PI(MXAO),Q(MXAO,NDIM),
      *          PK(MXAO,MXAO)
 C
+      SAVE ZERO,ONE
       DATA ZERO,ONE/0.0D0,1.0D0/
 C
 C  INITIALIZE P = UNIT MATRIX:
@@ -11579,6 +11710,7 @@ C
       DIMENSION P(MXAO,MXAO),TA(MXAO,MXAO),DM(NDIM,NDIM),C(MXBO,MXBO),
      + EVAL(MXBO),BORB(MXBO),V(MXBO),BLK(MXBO,MXBO),LARC(NBAS)
 C
+      SAVE ZERO,EPS,PT99,ONE
       DATA ZERO,EPS,PT99,ONE/0.0D0,1.0D-5,0.99D0,1.0D0/
 C
 C  FIRST, FORM SET OF "OPTIMALLY DIAGONAL" UNIT VECTORS TO SPAN RYDBERG SPACE:
@@ -11754,6 +11886,7 @@ C
       DIMENSION DM(NDIM,NDIM),Q(MXAO,NDIM),POL(NDIM,3),
      *        BLK(MXBO,MXBO),EVAL(MXBO),C(MXBO,MXBO)
 C
+      SAVE ZERO,PT1,ONE,TWO,LSTAR
       DATA ZERO,PT1,ONE,TWO/0.0D0,0.1D0,1.0D0,2.0D0/
       DATA LSTAR/1H*/
 C
@@ -11879,7 +12012,8 @@ C
      +            LFNDAF,LFNDEF
       DIMENSION T(NDIM,NDIM),Q(MXAO,NDIM),POL(NDIM,3)
 C
-      DATA LCR,LLP,LBD,LSTAR,LRY/'CR','LP','BD','*','RY'/
+      SAVE LCR,LLP,LBD,LSTAR,LRY,ZERO
+      DATA LCR,LLP,LBD,LSTAR,LRY/2HCR,2HLP,2HBD,1H*,2HRY/
       DATA ZERO/0.0D0/
 C
 C  REORDER OCCUPIED NBOS TO PUT LONE AND CORE PAIRS LAST:
@@ -12054,6 +12188,8 @@ C
       DIMENSION GUIDE(NATOMS,NATOMS),BNDOCC(NDIM),TOPO(NATOMS,NATOMS)
 C
       SAVE JTER,DEVMIN,RHOMIN,BEST,RHO,JBADL
+      SAVE LCR,LBD,L3C,LLP,LSTAR,DEVTHR,JTERMX
+      SAVE SMALL,ZERO,TENTH,ONE,ONEPT5,THREE,HUNDRD
 C
       DATA LCR,LBD,L3C,LLP,LSTAR/2HCR,2HBD,2H3C,2HLP,1H*/
       DATA SMALL,ZERO,TENTH,ONE,ONEPT5,THREE,HUNDRD
@@ -12421,8 +12557,11 @@ C*****************************************************************************
       DIMENSION TSYM(NROT,NROT),A(NDIM,NDIM),BLK(NROT,NROT),
      *  OVLP(NROT,NROT),EVAL(NROT)
       DIMENSION IOFF(NOFF),JOFF(NOFF),ILIST(NOFF),JLIST(NOFF)
+C
+      SAVE ZERO,ONE,EPS
       DATA ZERO,ONE/0.0D0,1.0D0/
       DATA EPS/1.0D-6/
+C
       DO 40 I=1,NROT
         DO 30 J=1,NROT
    30     TSYM(I,J)=ZERO
@@ -12561,6 +12700,8 @@ C******************************************************************
       COMMON/NBIO/LFNIN,LFNPR,LFNAO,LFNPNA,LFNNAO,LFNPNH,LFNNHO,LFNPNB,
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
+C
+      SAVE ZERO,ONE
       DATA ZERO,ONE/0.0D0,1.0D0/
 C
 C  IMPORTANT CONSTANTS:
@@ -12573,6 +12714,7 @@ C                            LINEAR DEPENDENCIES IN THE BASIS SET.  ALL
 C                            EIGENVALUES OF THE WEIGHTED OVERLAP MATRIX MUST
 C                            BE GREATER THAN DIAGTH*DANGER.
 C
+      SAVE DIAGTH,DANGER
       DATA DIAGTH,DANGER/1.0D-12,1.0D3/
 C
 C  FORM THE INVERSE SQRT OF THE OVERLAP MATRIX OF THE VECTORS:
@@ -12657,8 +12799,9 @@ C
 C
       DIMENSION A(MEMORY),NBOOPT(10)
 C
+      SAVE THRNEG,ONE,AUKCAL,EVKCAL
       DATA THRNEG/-1.0D-3/
-      DATA ONE,AUKCAL,EVKCAL/1.0D0,627.51,23.061/
+      DATA ONE,AUKCAL,EVKCAL/1.0D0,627.52791,23.061/
 C
 C  OPEN THE OLD NBO DAF:
 C
@@ -12800,6 +12943,8 @@ C
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
+C
+      SAVE LBD,L3C,LBLNK2,LBLNK1,LHYP
       DATA LBD/2HBD/,L3C/2H3C/,LBLNK2/2H  /,LBLNK1/1H /,LHYP/1H-/
 C
 C   FNBO  :  NBO FOCK MATRIX (TRIANGULAR)
@@ -12933,6 +13078,10 @@ C*****************************************************************************
       COMMON/NBIO/LFNIN,LFNPR,LFNAO,LFNPNA,LFNNAO,LFNPNH,LFNNHO,LFNPNB,
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
+C
+      SAVE ZERO,ISTAR,LDEL,LZERO,LEND,LALPHA,LBETA,LSAME,LORB,LELE,LBLO
+      SAVE LDESTR,LNOSTR,LDELOC,LATOM,LNOVIC,LNOGEM,LALT,LG,LV
+C
       DATA ZERO/0.0D0/,ISTAR/1H*/
       DATA LDEL/1HD,1HE,1HL/,LZERO/1HZ,1HE,1HR,1HO/,LEND/1HE,1HN,1HD/
       DATA LALPHA,LBETA/1HA,1HB/,LSAME/1HS,1HA,1HM,1HE/
@@ -12942,7 +13091,7 @@ C*****************************************************************************
       DATA LDELOC/1HD,1HE,1HL,1HO,1HC/,LATOM/1HA,1HT,1HO,1HM/
       DATA LNOVIC/1HN,1HO,1HV,1HI,1HC/,LNOGEM/1HN,1HO,1HG,1HE,1HM/
       DATA LALT/1H$,1HE,1HN,1HD/
-      DATA LG,LV/'g','v'/
+      DATA LG,LV/1Hg,1Hv/
 C
 C   THIS SUBROUTINE IS CALLED AT THE START OF EACH DELETION AND READS
 C    IN FROM LFNIN THE INSTRUCTIONS FOR THIS DELETION
@@ -13480,7 +13629,10 @@ C*****************************************************************************
       COMMON/NBBAS/LABEL(MAXBAS,6),NBOUNI(MAXBAS),NBOTYP(MAXBAS),
      +       IATNO(MAXBAS),IBXM(MAXBAS),NRANK(2*MAXBAS),LOCC(2*MAXBAS)
       DIMENSION DM(1),U(NDIM,NDIM),EIG(NDIM),IDEL(LEN)
+C
+      SAVE ZERO,ONE,TWO
       DATA ZERO/0.0D0/,ONE/1.0D0/,TWO/2.0D0/
+C
 C  ONETWO: ONE IF OPEN SHELL (ISPIN.NE.0), TWO IF CLOSED SHELL (DOUBLY OCC MOS)
       ONETWO=TWO
       IF(ISPIN.NE.0) ONETWO=ONE
@@ -14346,6 +14498,7 @@ C
       LOGICAL ROHF,UHF,CI,OPEN,COMPLX,ALPHA,BETA,MCSCF,AUHF,ORTHO
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
 C
+      SAVE NFILEA,NFILEB
       DATA NFILEA,NFILEB/20,21/
 C
 C  FEDRAW:  FETCHES THE DENSITY MATRIX (RAW A.O. BASIS) IN DM(NDIM,NDIM)
@@ -14381,6 +14534,7 @@ C
       LOGICAL ROHF,UHF,CI,OPEN,COMPLX,ALPHA,BETA,MCSCF,AUHF,ORTHO
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
 C
+      SAVE NFILEA,NFILEB
       DATA NFILEA,NFILEB/30,31/
 C
 C  FEFAO:  FETCHES THE AO FOCK MATRIX
@@ -14410,6 +14564,7 @@ C
       COMMON/NBFLAG/ROHF,UHF,CI,OPEN,COMPLX,ALPHA,BETA,MCSCF,AUHF,ORTHO
       LOGICAL ROHF,UHF,CI,OPEN,COMPLX,ALPHA,BETA,MCSCF,AUHF,ORTHO
 C
+      SAVE NFILEA,NFILEB
       DATA NFILEA,NFILEB/40,41/
 C
 C FEAOMO:  FETCH THE AO TO MO TRANSFORMATION MATRIX:
@@ -14436,6 +14591,7 @@ C*****************************************************************************
 C
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
 C
+      SAVE NFILEX,NFILEY,NFILEZ
       DATA NFILEX,NFILEY,NFILEZ/50,51,52/
 C
 C  FEDXYZ:    FETCH THE AO DIPOLE MOMENT MATRICES (IN ANGSTROMS)
@@ -14538,7 +14694,8 @@ C
 C
       DIMENSION T(NDIM,NDIM),OCC(NDIM),ISCR(1)
 C
-      DATA ZERO,TENTH /0.0D0,1.0D-1/
+      SAVE ZERO,TENTH
+      DATA ZERO,TENTH/0.0D0,1.0D-1/
 C
 C  FENBO:  FETCHES NBO INFORMATION (TRANSFORMATION, OCCUPANCIES, LABELS, ETC.)
 C          IF ALPHA .EQ. .TRUE.  FETCH THE ALPHA INFORMATION
@@ -14841,6 +14998,7 @@ C
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
       DIMENSION T(NDIM,NDIM)
 C
+      SAVE ZERO,ONE
       DATA ZERO,ONE/0.0D0,1.0D0/
 C
 C  FETNAO:  FETCHES THE AO TO NAO TRANSFORMATION MATRIX.
@@ -15075,7 +15233,7 @@ C
 C  FREE FORMAT INPUT ROUTINES:
 C
 C      SUBROUTINE STRTIN(LFNIN)
-C      SUBROUTINE RDCRD
+C      SUBROUTINE NXTCRD
 C      SUBROUTINE IFLD(INT,ERROR)
 C      SUBROUTINE RFLD(REAL,ERROR)
 C      SUBROUTINE HFLD(KEYWD,LENG,ENDD)
@@ -15170,12 +15328,12 @@ C
       LFN  = LFNIN
       END  = .FALSE.
       NEXT = .TRUE.
-      CALL RDCRD
+      CALL NXTCRD
 C
       RETURN
       END
 C*****************************************************************************
-      SUBROUTINE RDCRD
+      SUBROUTINE NXTCRD
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
 C
@@ -15185,6 +15343,7 @@ C
       COMMON/NBCRD2/POINT,END,NEXT,EXP
       LOGICAL POINT,END,NEXT,EXP
 C
+      SAVE IA,ICHARA,ICHARZ,IBLNK,IQ,II
       DATA IA,ICHARA,ICHARZ/1HA,1Ha,1Hz/
       DATA IBLNK,IQ,II/1H ,1H`,1HI/
 C
@@ -15230,6 +15389,7 @@ C
       COMMON/NBCRD2/POINT,END,NEXT,EXP
       LOGICAL POINT,END,NEXT,EXP
 C
+      SAVE ZERO,ONE,SMALL
       DATA ZERO,ONE,SMALL/0.0D0,1.0D0,1.0D-3/
 C
 C  SEARCH LFN FOR THE NEXT STRING OF NON-BLANK CHARACTERS, SEE IF THEY
@@ -15267,6 +15427,7 @@ C
 C
       DIMENSION NCHAR(15)
 C
+      SAVE NCHAR,ZERO,ONE,TEN
       DATA NCHAR/1H0,1H1,1H2,1H3,1H4,1H5,1H6,1H7,1H8,1H9,1H.,1H+,1H-,
      +  1HD,1HE/
       DATA ZERO,ONE,TEN/0.0D0,1.0D0,10.0D0/
@@ -15388,6 +15549,7 @@ C
 C
       DIMENSION KEYWD(LENG),KEND(3)
 C
+      SAVE NBLA,KEND
       DATA NBLA/1H /
       DATA KEND/1HE,1HN,1HD/
 C
@@ -15428,6 +15590,7 @@ C
       COMMON/NBCRD2/POINT,END,NEXT,EXP
       LOGICAL POINT,END,NEXT,EXP
 C
+      SAVE NBLA,NCOM,NEXC,NEQ
       DATA NBLA/1H /,NCOM/1H,/,NEXC/1H!/,NEQ/1H=/
 C
 C  FIND NEXT NON-BLANK STRING OF CHARACTERS IN LFN.  READ IN ANOTHER LINE
@@ -15435,7 +15598,7 @@ C  OF LFN UNTIL NON-BLANK CHARACTERS ARE FOUND AND PLACE THEM IN "LOOK",
 C  OF LENGTH "LENGTH":
 C
       IF(END) GO TO 35
-      IF(IPT.GE.80) CALL RDCRD
+      IF(IPT.GE.80) CALL NXTCRD
       IF(END) GO TO 35
 C
 C  LOOK FOR START OF FIELD.  SKIP TO NEXT CARD IF "!" IS ENCOUNTERED
@@ -15450,7 +15613,7 @@ C
 C
 C  NOTHING ADDITIONAL FOUND ON THIS CARD, CONTINUE WITH THE NEXT CARD:
 C
-   30 CALL RDCRD
+   30 CALL NXTCRD
       IF(.NOT.END) GO TO 10
 C
 C  END OF FILE FOUND:
@@ -15551,6 +15714,8 @@ C
       COMMON/NBGEN/REUSE,UPPER,BOHR,DENOP
       LOGICAL REUSE,UPPER,BOHR,DENOP
 C
+      SAVE KGEN,KEND,KREUSE,KNBAS,KNATOM,KUPPER,KOPEN,KORTHO,KBOHR,
+     +  KBODM,KEV,KCUBF
       DATA KGEN/1H$,1HG,1HE,1HN/,KEND/1H$,1HE,1HN,1HD/,
      + KREUSE/1HR,1HE,1HU,1HS,1HE/,KNBAS/1HN,1HB,1HA,1HS/,
      + KNATOM/1HN,1HA,1HT,1HO,1HM,1HS/,KUPPER/1HU,1HP,1HP,1HE,1HR/,
@@ -15691,12 +15856,13 @@ C
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
 C
+      SAVE KNBO
       DATA KNBO/1H$,1HN,1HB,1HO/
 C
-C  If NBOOPT(1) = 1, don't search for keywords, just continue with
+C  If NBOOPT(1) = 1 or -1, don't search for keywords, just continue with
 C  default options:
 C
-      IF(NBOOPT(1).EQ.1) THEN
+      IF(NBOOPT(1).EQ.1.OR.NBOOPT(1).EQ.-1) THEN
         IDONE = 0
         RETURN
       END IF
@@ -15725,19 +15891,28 @@ C
       IDONE = 0
       RETURN
 C
-C  End of file encountered -- Stop NBO analysis, except for the general
-C  version of the program (set NBOOPT(1) so keywords are not read):
+C  End of file encountered:
 C
    60 CONTINUE
+C
+C  Rewind and repeat search for $NBO for GAUSSIAN and AMPAC versions:
+C
       IF(IREP.EQ.1) THEN
         REWIND(LFNIN)
         IREP = IREP + 1
         GOTO 10
+C
+C  For GENNBO, continue with default NBO options:
+C
       ELSE IF(NBOOPT(10).EQ.0) THEN
         NBOOPT(1) = 1
         IDONE = 0
+C
+C  Otherwise, halt NBO analysis:
+C
       ELSE
         IDONE = 1
+        NBOOPT(10) = -NBOOPT(10)
       END IF
       RETURN
       END
@@ -15750,9 +15925,13 @@ C
       COMMON/NBIO/LFNIN,LFNPR,LFNAO,LFNPNA,LFNNAO,LFNPNH,LFNNHO,LFNPNB,
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
+      COMMON/NBOPT/IWDM,IW3C,IWAPOL,IWHYBS,IWPNAO,IWTNAO,IWTNAB,
+     + IWTNBO,IWFOCK,IWCUBF,IPSEUD,KOPT,IPRINT,IWDETL,IWMULP,ICHOOS,
+     + JCORE,JPRINT(60)
 C
       DIMENSION KEYWD(6),KCOR(4),KCHS(4),KDEL(4),KNBO(4),KNRT(4)
 C
+      SAVE KCOR,KCHS,KDEL,KNBO,KNRT
       DATA KCOR/1H$,1HC,1HO,1HR/,KCHS/1H$,1HC,1HH,1HO/,
      +     KDEL/1H$,1HD,1HE,1HL/,KNBO/1H$,1HN,1HB,1HO/,
      +     KNRT/1H$,1HN,1HR,1HT/
@@ -15802,6 +15981,11 @@ C  End of file encountered:
 C
    70 CONTINUE
       ICOR = 0
+C
+C  Turn off the $CHOOSE keylist for GAUSSIAN and AMPAC to avoid reading
+C  the EOF a second time:
+C
+      IF(IREP.EQ.1) ICHOOS = -1
       RETURN
       END
 C*****************************************************************************
@@ -15815,6 +15999,8 @@ C
      +            LFNDAF,LFNDEF
 C
       DIMENSION KEYWD(6),KCHS(4),KDEL(4),KNBO(4),KNRT(4)
+C
+      SAVE KCHS,KDEL,KNBO,KNRT
 C
       DATA KCHS/1H$,1HC,1HH,1HO/,KDEL/1H$,1HD,1HE,1HL/,
      +     KNBO/1H$,1HN,1HB,1HO/,KNRT/1H$,1HN,1HR,1HT/
@@ -15877,6 +16063,7 @@ C
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
 C
+      SAVE KDEL,KNBO
       DATA KDEL/1H$,1HD,1HE,1HL/,KNBO/1H$,1HN,1HB,1HO/
 C
 C  If this is the GAMESS, HONDO, or general version of the NBO program,
@@ -16536,6 +16723,10 @@ C
       DIMENSION KGEN(7),KNAT(6),KBAS(4),KOPEN(4),KORTHO(5),KUPPER(5),
      + KBODM(4),KEV(2),KCUBF(6),KEND(4),KCAL(4)
 C
+      SAVE KGEN,KBAS,KNAT,KOPEN,KORTHO,KUPPER,KBODM,KEV,KEND,KCUBF,KCAL,
+     +  KBLNK,KEQ,ABLNKS,ACENTR,ALABEL,ANSHLL,ANEXP,ANCOMP,ANPRIM,
+     +  ANPTR,AEXP,ACS,ACP,ACD,ACF,ZERO
+C
       DATA KGEN/1H$,1HG,1HE,1HN,1HN,1HB,1HO/,KBAS/1HN,1HB,1HA,1HS/,
      +     KNAT/1HN,1HA,1HT,1HO,1HM,1HS/,KOPEN/1HO,1HP,1HE,1HN/,
      +     KORTHO/1HO,1HR,1HT,1HH,1HO/,KUPPER/1HU,1HP,1HP,1HE,1HR/,
@@ -17012,6 +17203,7 @@ C
       COMMON/NBATOM/IATNO(MAXATM),INO(MAXATM),NORBS(MAXATM),LL(MAXATM),
      +       LU(MAXATM),IZNUC(MAXATM),IATCR(MAXATM)
 C
+      SAVE KFULL,KVAL,KLEW
       DATA KFULL,KVAL,KLEW/4HFULL,3HVAL,3HLEW/
 C
 C  Either write A to an external file, or print it in the output file:
@@ -17112,6 +17304,7 @@ C
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
 C
+      SAVE BASIS,ATOM,DASHES,TENTH
       DATA BASIS/4H AO ,4H NAO,4H NHO,4H NBO,4HNLMO/
       DATA ATOM,DASHES/4HAtom,8H--------/
       DATA TENTH/0.1D0/
@@ -17303,6 +17496,7 @@ C
       COMMON/NBFLAG/ROHF,UHF,CI,OPEN,COMPLX,ALPHA,BETA,MCSCF,AUHF,ORTHO
       LOGICAL ROHF,UHF,CI,OPEN,COMPLX,ALPHA,BETA,MCSCF,AUHF,ORTHO
 C
+      SAVE IDASH,IALFA,IBETA
       DATA IDASH,IALFA,IBETA/4H----,4HALPH,4HBETA/
 C
 C  Read the matrix A to the external file LFN:
@@ -17400,6 +17594,7 @@ C
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
 C
+      SAVE IW,IR,IP,IC,IV,IL,KFULL,KVAL,KLEW
       DATA IW,IR,IP,IC,IV,IL/1HW,1HR,1HP,1HC,1HV,1HL/
       DATA KFULL,KVAL,KLEW/4HFULL,3HVAL,3HLEW/
 C
@@ -17509,6 +17704,8 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
 C
+      SAVE KFULL,KVAL,KLEW
+      SAVE KBLNK,KPRNT,KWRIT,KREAD
       DATA KFULL,KVAL,KLEW/4HFULL,3HVAL,3HLEW/
       DATA KBLNK,KPRNT,KWRIT,KREAD/4H    ,4HPRNT,4HWRIT,4HREAD/
 C
@@ -17548,10 +17745,11 @@ C
 C
       DIMENSION ISTR(MAXD),IANG(5),IXYZ(3),IBYTE(4),NUM(10)
 C
-      DATA IBLNK/' '/
-      DATA IANG/'s','p','d','f','g'/
-      DATA IXYZ/'x','y','z'/
-      DATA ILEFT,IRIGHT/'(',')'/
+      SAVE IBLNK,IANG,IXYZ,ILEFT,IRIGHT,NUM
+      DATA IBLNK/1H /
+      DATA IANG/1Hs,1Hp,1Hd,1Hf,1Hg/
+      DATA IXYZ/1Hx,1Hy,1Hz/
+      DATA ILEFT,IRIGHT/1H(,1H)/
       DATA NUM/1H0,1H1,1H2,1H3,1H4,1H5,1H6,1H7,1H8,1H9/
 C
       DO 20 IAO = 1,NBAS
@@ -17602,10 +17800,11 @@ C
 C
       DIMENSION ISTR(MAXD),IANG(5),IXYZ(3),IBYTE(4),NUM(10)
 C
-      DATA IBLNK/' '/
-      DATA IANG/'s','p','d','f','g'/
-      DATA IXYZ/'x','y','z'/
-      DATA ILEFT,IRIGHT/'(',')'/
+      SAVE IBLNK,IANG,IXYZ,ILEFT,IRIGHT,NUM
+      DATA IBLNK/1H /
+      DATA IANG/1Hs,1Hp,1Hd,1Hf,1Hg/
+      DATA IXYZ/1Hx,1Hy,1Hz/
+      DATA ILEFT,IRIGHT/1H(,1H)/
       DATA NUM/1H0,1H1,1H2,1H3,1H4,1H5,1H6,1H7,1H8,1H9/
 C
       DO 20 INAO = 1,NBAS
@@ -17660,10 +17859,12 @@ C
       COMMON/NBLBL/NLEW,NVAL,IAOLBL(10,MAXBAS),NAOLBL(10,MAXBAS),
      +                       NHOLBL(10,MAXBAS),NBOLBL(10,MAXBAS)
 C
-      DATA IBLNK,IC,IL,IP,IR,IY,ISTAR,IHYP/' ','c','l','p','r','y','*',
-     +                                     '-'/
-      DATA ICR,ILP/'CR','LP'/
-      DATA ILEFT,IRIGHT/'(',')'/
+      SAVE IBLNK,IC,IL,IP,IR,IY,ISTAR,IHYP
+      SAVE ICR,ILP,ILEFT,IRIGHT
+      DATA IBLNK,IC,IL,IP,IR,IY,ISTAR,IHYP/1H ,1Hc,1Hl,1Hp,1Hr,1Hy,1H*,
+     +                                     1H-/
+      DATA ICR,ILP/2HCR,2HLP/
+      DATA ILEFT,IRIGHT/1H(,1H)/
 C
       DO 20 INBO = 1,NBAS
         DO 10 I = 1,10
@@ -17784,10 +17985,12 @@ C
       COMMON/NBLBL/NLEW,NVAL,IAOLBL(10,MAXBAS),NAOLBL(10,MAXBAS),
      +                       NHOLBL(10,MAXBAS),NBOLBL(10,MAXBAS)
 C
-      DATA IBLNK,IC,IL,IP,IR,IY,I3,ISTAR,IHYP/' ','c','l','p','r','y',
-     +                                        '3','*','-'/
-      DATA ICR,ILP/'CR','LP'/
-      DATA ILEFT,IRIGHT/'(',')'/
+      SAVE IBLNK,IC,IL,IP,IR,IY,I3,ISTAR,IHYP
+      SAVE ICR,ILP,ILEFT,IRIGHT
+      DATA IBLNK,IC,IL,IP,IR,IY,I3,ISTAR,IHYP/1H ,1Hc,1Hl,1Hp,1Hr,1Hy,
+     +                                        1H3,1H*,1H-/
+      DATA ICR,ILP/2HCR,2HLP/
+      DATA ILEFT,IRIGHT/1H(,1H)/
 C
       DO 10 I = 1,10
         NHOLBL(I,INHO) = IBLNK
@@ -17908,6 +18111,8 @@ C*****************************************************************************
       SUBROUTINE ANGLES(X,Y,Z,THETA,PHI)
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
+C
+      SAVE ZERO,CUTOFF,ONE
       DATA ZERO,CUTOFF,ONE/0.0D0,1.0D-8,1.0D0/
 C
       CONV = 180.0/(4.0*ATAN(ONE))
@@ -17948,6 +18153,7 @@ C
      +       LSTOCC(MAXBAS),IBXM(MAXBAS),LARC(MAXBAS),IATHY(MAXBAS,3)
       COMMON/NBINFO/ISPIN,NATOMS,NDIM,NBAS,MXBO,MXAO,MXAOLM,MUNIT
 C
+      SAVE LSTAR
       DATA LSTAR/1H*/
 C
 C  SET BDFIND=.TRUE. IF THERE IS AT LEAST ONE BOND BETWEEN ATOMS IAT AND JAT
@@ -17977,7 +18183,9 @@ C*****************************************************************************
 C
       PARAMETER (MAXD = 4)
       DIMENSION INUM(MAXD),IBYTE(4)
-      DATA IC,IH,IBLNK,ILEFT,IRIGHT/'C','H',' ','(',')'/
+C
+      SAVE IC,IH,IBLNK,ILEFT,IRIGHT
+      DATA IC,IH,IBLNK,ILEFT,IRIGHT/1HC,1HH,1H ,1H(,1H)/
 C
 C  Build the chemical formula from the list of atoms in LISTA:
 C
@@ -18091,6 +18299,7 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION IJ(1)
       DIMENSION INT(10)
+      SAVE INT
       LOGICAL ERROR
 C
       DATA INT/1H0,1H1,1H2,1H3,1H4,1H5,1H6,1H7,1H8,1H9/
@@ -18128,6 +18337,7 @@ C
 C  CONVERT 2-DIGIT INTEGER 'N' TO TWO LITERAL CHARACTERS 'NC1','NC2'.
 C
       DIMENSION INT(10)
+      SAVE ISP,INT
       DATA ISP,INT/1H ,1H1,1H2,1H3,1H4,1H5,1H6,1H7,1H8,1H9,1H0/
 C
       NC1=ISP
@@ -18188,7 +18398,7 @@ C
 C------------------------------------------------------------------------------
       IMPLICIT REAL*8 (A-H,O-Z)
       PARAMETER (LMAX = 3)
-      INTEGER CORE(57),ICORE(4),ITEMP(4),IORD(16),JORD(20),KORD(20)
+      INTEGER NCORE(57),ICORE(4),ITEMP(4),IORD(16),JORD(20),KORD(20)
 C
       PARAMETER(MAXATM = 99,MAXBAS = 500)
       COMMON/NBATOM/IATNO(MAXATM),INO(MAXATM),NORBS(MAXATM),LL(MAXATM),
@@ -18197,11 +18407,12 @@ C
      + IWTNBO,IWFOCK,IWCUBF,IPSEUD,KOPT,IPRINT,IWDETL,IWMULP,ICHOOS,
      + JCORE,JPRINT(60)
 C
+      SAVE IORD,JORD,KORD,NCORE
       DATA IORD/1,1,3,1,3,5,1,3,5,1,3,7,5,1,3,7/
       DATA JORD/1,1,3,1,3,1,5,3,1,5,3,1,7,5,3,1,7,5,3,1/
       DATA KORD/1,2,1,3,2,4,1,3,5,2,4,6,1,3,5,7,2,4,6,8/
-      DATA CORE/2,0,8,1,1,8,2,2,1,12,2,3,2,6,3,3,2,1,12,3,4,3,1,6,3,4,3,
-     +  2,16,3,5,4,2,10,4,5,4,2,1,6,4,5,4,3,1,16,4,6,5,3,1,10,4,6,5,3,2/
+      DATA NCORE/2,0,8,1,1,8,2,2,1,12,2,3,2,6,3,3,2,1,12,3,4,3,1,6,3,4,
+     +3,2,16,3,5,4,2,10,4,5,4,2,1,6,4,5,4,3,1,16,4,6,5,3,1,10,4,6,5,3,2/
 C
 C  Initialize arrays.  If there is no nuclear charge at this center,
 C  return to calling routine:
@@ -18219,14 +18430,14 @@ C
         JAT = IATNO(IAT)
         II  = 0
    20   II  = II + 1
-          JAT = JAT - CORE(II)
+          JAT = JAT - NCORE(II)
           II = II + 1
           IF(JAT.LE.0) THEN
-            DO 30 L = 1,CORE(II)
-              ICORE(L) = CORE(II+L)
+            DO 30 L = 1,NCORE(II)
+              ICORE(L) = NCORE(II+L)
    30       CONTINUE
           ELSE
-            II = II + CORE(II)
+            II = II + NCORE(II)
           END IF
         IF(JAT.GT.0) GOTO 20
       ELSE
@@ -18279,7 +18490,7 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION IBYTE(4),KB(4)
 C
-      SAVE KB,KPAD,KSW
+      SAVE KB,KPAD,KSW,KTMP
 C
       DATA KSW/0/
       DATA KTMP/4HABCD/
@@ -18337,19 +18548,17 @@ C*****************************************************************************
       SUBROUTINE HALT(WORD)
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
+      CHARACTER*(*) WORD
 C
       COMMON/NBIO/LFNIN,LFNPR,LFNAO,LFNPNA,LFNNAO,LFNPNH,LFNNHO,LFNPNB,
      +            LFNNBO,LFNPNL,LFNNLM,LFNMO,LFNDM,LFNNAB,LFNPPA,LFNARC,
      +            LFNDAF,LFNDEF
 C
-      DATA BLANK/1H /
-C
-      IF(WORD.EQ.BLANK) RETURN
       WRITE(LFNPR,1000) WORD
       STOP
 C
  1000 FORMAT(' Non-integer encountered when trying to read variable ',
-     + '/',A6,'/')
+     + '/',A,'/')
       END
 C*****************************************************************************
       SUBROUTINE IDIGIT(KINT,IK,ND,MAXD)
@@ -18357,6 +18566,7 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION IK(MAXD),INT(10)
 C
+      SAVE IBLNK,INT
       DATA IBLNK,INT/1H ,1H1,1H2,1H3,1H4,1H5,1H6,1H7,1H8,1H9,1H0/
 C
 C  CONVERTS THE INTEGER KINT INTO THE FIRST ND ELEMENTS OF HOLLERITH ARRAY
@@ -18394,7 +18604,8 @@ C
       COMMON/NBBAS/LABEL(MAXBAS,6),NBOUNI(MAXBAS),NBOTYP(MAXBAS),
      +       LSTOCC(MAXBAS),IBXM(MAXBAS),LARC(MAXBAS),IATHY(MAXBAS,3)
 C
-      DATA IV,IG,IR/'v','g','r'/
+      SAVE IV,IG,IR
+      DATA IV,IG,IR/1Hv,1Hg,1Hr/
 C
 C  Determine whether the IBO->JBO delocalization is vicinal (IHTYP='v'),
 C  geminal (IHTYP='g'), or remote (IHTYP='r'):
@@ -18461,7 +18672,10 @@ C             --- Reduced from 1.0D-11.  8/31/88 (EDG) ---
 C
       LOGICAL FULMIX
       DIMENSION A(NDIM,1),EIVR(NVDIM,1),EIVU(1)
+C
 C  IMPORTANT PARAMETERS:
+C
+      SAVE DIFFER,DONE,EPS,PT99,ZERO,ONE,FIVE
       DATA DIFFER,DONE,EPS,PT99/1.0D-5,1.0D-13,0.5D-13,0.99D0/
       DATA ZERO,ONE,FIVE/0.0D0,1.0D0,5.0D0/
 C
@@ -18667,6 +18881,7 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION A(1),B(1),V(NDIM)
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  MULTIPLY A*B (USING SCRATCH VECTOR V), STORE RESULT IN A:
@@ -18695,6 +18910,7 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION A(1),B(1),V(NDIM)
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C                       B=A(TRANSPOSE)*B
 C  MULTIPLY A(TRANSPOSE)*B (USING SCRATCH VECTOR V), STORE RESULT IN B:
@@ -18738,17 +18954,20 @@ C
 C  RETURN ATOMIC SYMBOL FOR NUCLEAR CHARGE IZ (.LE. 103):
 C
       DIMENSION NAME(103)
-      DATA IGHOST/'gh'/IBLANK/'  '/
-      DATA NAME/' H','He','Li','Be',' B',' C',' N',' O',' F','Ne',
-     + 'Na','Mg','Al','Si',' P',' S','Cl','Ar',' K','Ca','Sc','Ti',
-     + ' V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As',
-     + 'Se','Br','Kr','Rb','Sr',' Y','Zr','Nb','Mo','Tc','Ru',
-     + 'Rh','Pd','Ag','Cd','In','Sn','Sb','Te',' I','Xe','Cs',
-     + 'Ba','La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy',
-     + 'Ho','Er','Tm','Yb','Lu','Hf','Ta',' W','Re','Os','Ir',
-     + 'Pt','Au','Hg','Tl','Pb','Bi','Po','At','Rn','Fr','Ra',
-     + 'Ac','Th','Pa',' U','Np','Pu','Am','Cm','Bk','Cf','Es',
-     + 'Fm','Md','No','Lr'/
+C
+      SAVE IGHOST,IBLANK,NAME
+C
+      DATA IGHOST/2Hgh/,IBLANK/2H  /
+      DATA NAME/2H H,2HHe,2HLi,2HBe,2H B,2H C,2H N,2H O,2H F,2HNe,
+     + 2HNa,2HMg,2HAl,2HSi,2H P,2H S,2HCl,2HAr,2H K,2HCa,2HSc,2HTi,
+     + 2H V,2HCr,2HMn,2HFe,2HCo,2HNi,2HCu,2HZn,2HGa,2HGe,2HAs,
+     + 2HSe,2HBr,2HKr,2HRb,2HSr,2H Y,2HZr,2HNb,2HMo,2HTc,2HRu,
+     + 2HRh,2HPd,2HAg,2HCd,2HIn,2HSn,2HSb,2HTe,2H I,2HXe,2HCs,
+     + 2HBa,2HLa,2HCe,2HPr,2HNd,2HPm,2HSm,2HEu,2HGd,2HTb,2HDy,
+     + 2HHo,2HEr,2HTm,2HYb,2HLu,2HHf,2HTa,2H W,2HRe,2HOs,2HIr,
+     + 2HPt,2HAu,2HHg,2HTl,2HPb,2HBi,2HPo,2HAt,2HRn,2HFr,2HRa,
+     + 2HAc,2HTh,2HPa,2H U,2HNp,2HPu,2HAm,2HCm,2HBk,2HCf,2HEs,
+     + 2HFm,2HMd,2HNo,2HLr/
 C
       IF(IZ.LT.0.OR.IZ.GT.103) NAMEAT = IBLANK
       IF(IZ.GT.0) NAMEAT = NAME(IZ)
@@ -18761,6 +18980,7 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION A(M,M),S(M,M)
 C
+      SAVE ZERO,ONE
       DATA ZERO,ONE /0.0D0,1.0D0/
 C
 C NORMALIZE COLUMNS OF A
@@ -18817,6 +19037,7 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION T(1)
 C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  PACK:  PACKS A SYMMETRIC MATRIX T INTO AN UPPER TRIANGULAR MATRIX.
@@ -18853,7 +19074,10 @@ C       BY MORE THAN "DIFFER":  5.0D-8
 C
       INTEGER ARCRNK
       DIMENSION ARCRNK(NDIM),EIG(NDIM)
+C
+      SAVE DIFFER
       DATA DIFFER/5.0D-8/
+C
       DO 10 I=1,N
    10   ARCRNK(I)=I
       DO 40 I=1,N
@@ -18976,6 +19200,7 @@ C
      + IWTNBO,IWFOCK,IWCUBF,IPSEUD,KOPT,IPRINT,IWDETL,IWMULP,ICHOOS,
      + JCORE,JPRINT(60)
 C
+      SAVE IORD
       DATA IORD/1,1,3,1,3,1,5,3,1,5,3,1,7,5,3,1,7,5,3,1/
 C
       DO 10 L = 0,LMAX
@@ -19018,6 +19243,8 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION X(NDIM)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
       SUM = ZERO
@@ -19065,6 +19292,8 @@ C------------------------------------------------------------------------------
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION A(NDIM,NDIM),X(NDIM,MDIM),B(NDIM,MDIM),
      +          SCR(NDIM*(NDIM+5))
+C
+      SAVE ZERO
       DATA ZERO/0.0/
 C
       IF(N.LT.1) STOP 'Dimension N is not positive'
@@ -19125,6 +19354,8 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION A(NDIM,NDIM),W(NDIM,NDIM),D(NDIM),IPIVOT(NDIM)
+C
+      SAVE ZERO,ONE
       DATA ZERO,ONE/0.0D0,1.0D0/
 C
 C  Initial IFLAG.  If IFLAG is 1, then an even number of interchanges
@@ -19206,6 +19437,8 @@ C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION A(NDIM,NDIM),X(NDIM),B(NDIM),W(NDIM,NDIM),R(NDIM),
      +          E(NDIM),IPIVOT(NDIM)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
 C  Find initial guess for X by back substitution:
@@ -19276,6 +19509,8 @@ C*****************************************************************************
 C*****************************************************************************
       IMPLICIT REAL*8 (A-H,O-Z)
       DIMENSION X(NDIM),W(NDIM,NDIM),B(NDIM),IPIVOT(NDIM)
+C
+      SAVE ZERO
       DATA ZERO/0.0D0/
 C
       IF(N.EQ.1) THEN
@@ -24548,6 +24783,7 @@ C                                                                       AMPDRV
 C  Perform the NPA/NBO/NLMO analyses.                                   AMPDRV
 C                                                                       AMPDRV
 *     CALL NBO(CORE,MEMORY,NBOOPT)                                      AMPDRV
+*     IF(NBOOPT(10).LT.0) RETURN                                        AMPDRV
 C                                                                       AMPDRV
 C  Perform the energetic analysis.                                      AMPDRV
 C                                                                       AMPDRV
