@@ -7,11 +7,12 @@ C
 C
       CHARACTER*80 STRING
       CHARACTER*10 NAME
-      CHARACTER*3  ID,IDENT(NID)
+      CHARACTER*3  ID,LID, IDENT(NID)
       CHARACTER*1  STAR,BLANK
+      character*5 fmt
 C
       DATA IDENT      /'GEN','AMP','GMS','HND','G82','G86','G88','G90'/
-      DATA NAME       /'XXXNBO.FOR'/
+      DATA NAME       /'XXXnbo.f'/
       DATA STAR,BLANK /'*',' '/
 C
       DATA LFNIN,LFNOUT,LFNSRC,LFNFOR/5,6,7,8/
@@ -20,6 +21,23 @@ C  WHICH VERSION OF THE NBO PROGRAM SHOULD BE ENABLE?
 C
    10 WRITE(LFNOUT,900)
       READ(LFNIN,1000) ID
+
+      ! capitalize ID, and get lowercase ID as LID
+      loa = ichar('a')
+      loz = ichar('z')
+      hia = ichar('A')
+      hiz = ichar('Z')
+      do i = 1, 3
+        j = ichar(id(i:i))
+        if (j.ge.loa.and.j.le.loz) then
+          lid(i:i) = id(i:i)
+          j = j - loa + hia
+          id(i:i) = char(j)
+        else if (j.ge.hia.and.j.le.hiz) then
+          j = j - hia + loa
+          lid(i:i) = char(j)
+        end if
+      end do
 C
 C  MAKE SURE THIS IDENTIFIER IS RECOGNIZED:
 C
@@ -31,10 +49,10 @@ C
 C
 C  OPEN THE INPUT NBO SOURCE FILE AND THE OUTPUT FORTRAN FILE:
 C
-      OPEN(UNIT=LFNSRC, FILE='nbo.src', STATUS='OLD', ERR=800)
+      OPEN(UNIT=LFNSRC, FILE='nbo.src.f', STATUS='OLD', ERR=800)
 C
-      NAME(1:3) = ID
-      OPEN(UNIT=LFNFOR, FILE=NAME, STATUS='NEW')
+      NAME(1:3) = lid
+      OPEN(UNIT=LFNFOR, FILE=NAME, STATUS='UNKNOWN')
 C
 C  READ SOURCE CODE, WRITING OUT LINES LABELLED WITH THE APPROPRIATE
 C  IDENTIFIER:
@@ -64,7 +82,25 @@ C
 C
 C  WRITE THIS LINE TO THE FORTRAN FILE:
 C
-      WRITE(LFNFOR,940) STRING
+      L = 80
+      do J = 80, 1, -1
+        if (string(j:j).eq.' ') then
+          string(j:j)=char(0)
+          L = L - 1
+        else
+          exit
+        endif
+      end do
+      FMT(1:2) = '(A'
+      if (L.GE.10) then
+        FMT(3:3) = char((L / 10) + ichar('0'))
+        FMT(4:4) = char((mod(L,10)) + ichar('0'))
+        FMT(5:5) = ')'
+      else
+        FMT(3:3) = char(L + ichar('0'))
+        FMT(4:4) = ')'
+      end if
+      WRITE(LFNFOR,fmt) STRING
       GOTO 30
 C
 C  FINISH UP:
@@ -88,7 +124,7 @@ C
   910 FORMAT(1X,'NBO source code (NBO.SRC) is not found.')
   920 FORMAT(1X,'Error reading from NBO.SRC as line ',I5,'.')
   930 FORMAT(1X,'Unknown version label (',A3,') at line ',I5,
-     + ' for NBO.SRC.')
+     + ' for nbo.src.')
   940 FORMAT(A80)
   950 FORMAT(1X,I5,' lines written to ',A10,'.')
  1000 FORMAT(A3)
